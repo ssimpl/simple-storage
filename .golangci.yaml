@@ -1,0 +1,81 @@
+run:
+  deadline: 5m
+  issues-exit-code: 1
+
+issues:
+  max-same-issues: 15
+  max-issues-per-linter: 15
+  exclude-rules:
+    - path: .*main\.go
+      linters:
+        - funlen
+        - gocyclo
+    - path: .*_test\.go
+      linters:
+        - gocritic
+        - funlen
+        - gosec
+        - lll
+        - dupl
+        - forcetypeassert
+        - goconst
+        - revive
+    # - path: .*db\.go
+    #   linters:
+    #     - typecheck
+
+linters-settings:
+  govet:
+    check-shadowing: false
+  gofmt:
+    simplify: true
+  gocritic:
+    disabled-checks:
+      - hugeParam
+    enabled-tags:
+      - performance
+      - experimental
+      - diagnostic
+  gocyclo:
+    min-complexity: 15
+  misspell:
+    locale: US
+  funlen:
+    lines: 60
+    statements: 40
+  goimports:
+    local-prefixes: github.com/ssimpl
+
+linters:
+  disable-all: true
+  enable:
+    - asciicheck
+    - bodyclose
+    - dupl
+    - durationcheck
+    - errcheck
+    - errorlint
+    - copyloopvar
+    - forcetypeassert
+    - funlen
+    - goconst
+    - gocritic
+    - gocyclo
+    - gofmt
+    - goimports
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - lll
+    - makezero
+    - misspell
+    - nestif
+    - nilerr
+    - prealloc
+    - revive
+    - rowserrcheck
+    - staticcheck
+    - typecheck
+    - unused

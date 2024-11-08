@@ -1,0 +1,122 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: simple-storage
+      POSTGRES_USER: simple-storage-user
+      POSTGRES_PASSWORD: simple-storage-password
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 60s
+      retries: 5
+    networks:
+      - internal_network
+
+  migrator:
+    build:
+      context: .
+      dockerfile: ./cmd/migrator/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_ADDRESS: db:5432
+      PG_DATABASE: simple-storage
+      PG_USER: simple-storage-user
+      PG_PASSWORD: simple-storage-password
+    networks:
+      - internal_network
+
+  api:
+    build:
+      context: .
+      dockerfile: ./cmd/api/Dockerfile
+    depends_on:
+      storage1:
+        condition: service_started
+      storage2:
+        condition: service_started
+      storage3:
+        condition: service_started
+      storage4:
+        condition: service_started
+      storage5:
+        condition: service_started
+      storage6:
+        condition: service_started
+      migrator:
+        condition: service_completed_successfully
+    environment:
+      HTTP_LISTEN_ADDR: :8080
+      PG_ADDRESS: db:5432
+      PG_DATABASE: simple-storage
+      PG_USER: simple-storage-user
+      PG_PASSWORD: simple-storage-password
+    ports:
+      - 8080:8080
+    networks:
+      - internal_network
+
+  storage1:
+    build:
+      context: .
+      dockerfile: ./cmd/storage/Dockerfile
+    environment:
+      - GRPC_LISTEN_ADDR=:51051
+    networks:
+      - internal_network
+  storage2:
+    build:
+      context: .
+      dockerfile: ./cmd/storage/Dockerfile
+    environment:
+      - GRPC_LISTEN_ADDR=:52051
+    networks:
+      - internal_network
+  storage3:
+    build:
+      context: .
+      dockerfile: ./cmd/storage/Dockerfile
+    environment:
+      - GRPC_LISTEN_ADDR=:53051
+    networks:
+      - internal_network
+  storage4:
+    build:
+      context: .
+      dockerfile: ./cmd/storage/Dockerfile
+    environment:
+      - GRPC_LISTEN_ADDR=:54051
+    networks:
+      - internal_network
+  storage5:
+    build:
+      context: .
+      dockerfile: ./cmd/storage/Dockerfile
+    environment:
+      - GRPC_LISTEN_ADDR=:55051
+    networks:
+      - internal_network
+  storage6:
+    build:
+      context: .
+      dockerfile: ./cmd/storage/Dockerfile
+    environment:
+      - GRPC_LISTEN_ADDR=:56051
+    networks:
+      - internal_network
+  storage7:
+    build:
+      context: .
+      dockerfile: ./cmd/storage/Dockerfile
+    environment:
+      - GRPC_LISTEN_ADDR=:57051
+    networks:
+      - internal_network
+
+networks:
+  internal_network:
+    driver: bridge

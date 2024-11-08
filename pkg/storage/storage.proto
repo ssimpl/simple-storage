@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+option go_package = ".;storage";
+
+service Storage {
+  rpc Upload(stream UploadRequest) returns (UploadResponse);
+  rpc Download(DownloadRequest) returns (stream DownloadResponse);
+}
+
+message UploadRequest {
+  string object_id = 1;
+  bytes data = 2;
+}
+
+message UploadResponse {
+  string status = 1;
+}
+
+message DownloadRequest {
+  string object_id = 1;
+}
+
+message DownloadResponse {
+  bytes data = 1;
+}
