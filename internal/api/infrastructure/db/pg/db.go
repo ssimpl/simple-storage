@@ -62,14 +62,32 @@ func (db *DB) SaveObjectMeta(ctx context.Context, meta model.ObjectMeta) error {
 		return fmt.Errorf("convert object meta to db entity: %w", err)
 	}
 
-	_, err = db.NewInsert().
-		Model(&e).
-		On("CONFLICT (name) DO UPDATE").
-		Set("fragments = EXCLUDED.fragments").
-		Exec(ctx)
+	if err := db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		_, err := tx.NewInsert().
+			Model(&e).
+			On("CONFLICT (name) DO UPDATE").
+			Set("fragments = EXCLUDED.fragments").
+			Exec(ctx)
 
-	if err != nil {
-		return fmt.Errorf("insert object metadata: %w: %w", err, model.ErrDBMalfunctioning)
+		if err != nil {
+			return fmt.Errorf("insert object metadata: %w: %w", err, model.ErrDBMalfunctioning)
+		}
+
+		for _, f := range meta.Fragments {
+			_, err := tx.NewUpdate().
+				Model((*entity.Server)(nil)).
+				Set("used_space = used_space + ?", f.FragmentSize).
+				Where("id = ?", f.ServerID).
+				Exec(ctx)
+
+			if err != nil {
+				return fmt.Errorf("update server used space: %w: %w", err, model.ErrDBMalfunctioning)
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return fmt.Errorf("run transaction: %w", err)
 	}
 
 	return nil

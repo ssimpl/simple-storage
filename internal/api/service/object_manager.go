@@ -2,10 +2,8 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"io"
-	"math/big"
 	"sort"
 	"sync"
 
@@ -53,6 +51,10 @@ func (m *ObjectManager) StoreObject(
 		return fmt.Errorf("no servers available")
 	}
 
+	sort.Slice(servers, func(i, j int) bool {
+		return servers[i].UsedSpace < servers[j].UsedSpace
+	})
+
 	fragmentSize := size / int64(m.fragmentCount)
 	lastFragmentSize := size - (fragmentSize * int64(m.fragmentCount-1))
 
@@ -65,8 +67,7 @@ func (m *ObjectManager) StoreObject(
 		go func(fragmentIndex int) {
 			defer wg.Done()
 
-			//TODO: implement more intelligent balancing algorithm
-			server := getRandomServer(servers)
+			server := servers[fragmentIndex%len(servers)]
 
 			currentFragmentSize := fragmentSize
 			if fragmentIndex == m.fragmentCount-1 {
@@ -84,9 +85,10 @@ func (m *ObjectManager) StoreObject(
 			}
 
 			metaFragments = append(metaFragments, model.ObjectFragmentMeta{
-				SeqNum:     fragmentIndex,
-				ServerID:   server.ID,
-				FragmentID: fragmentID,
+				SeqNum:       fragmentIndex,
+				ServerID:     server.ID,
+				FragmentID:   fragmentID,
+				FragmentSize: currentFragmentSize,
 			})
 		}(i)
 	}
@@ -95,22 +97,13 @@ func (m *ObjectManager) StoreObject(
 	close(errChan)
 
 	if len(errChan) > 0 {
-		err := <-errChan
-		return fmt.Errorf("failed to store object: %w", err)
+		return fmt.Errorf("failed to store object: %w", <-errChan)
 	}
 
 	return m.metaRepo.SaveObjectMeta(ctx, model.ObjectMeta{
 		ObjectName: objectName,
 		Fragments:  metaFragments,
 	})
-}
-
-func getRandomServer(servers []model.Server) model.Server {
-	i, err := rand.Int(rand.Reader, big.NewInt(int64(len(servers))))
-	if err != nil {
-		return servers[0]
-	}
-	return servers[i.Int64()]
 }
 
 func getFragmentID(objectName string, seqNum int) uuid.UUID {

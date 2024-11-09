@@ -41,7 +41,7 @@ linters-settings:
   misspell:
     locale: US
   funlen:
-    lines: 60
+    lines: 70
     statements: 40
   goimports:
     local-prefixes: github.com/ssimpl

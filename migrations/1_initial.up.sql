@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS objects_metadata (
 CREATE TABLE IF NOT EXISTS servers (
     id UUID NOT NULL DEFAULT gen_random_uuid (),
     addr TEXT NOT NULL,
+    used_space BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

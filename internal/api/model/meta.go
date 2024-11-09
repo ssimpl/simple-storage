@@ -8,7 +8,8 @@ type ObjectMeta struct {
 }
 
 type ObjectFragmentMeta struct {
-	SeqNum     int
-	ServerID   uuid.UUID
-	FragmentID uuid.UUID
+	SeqNum       int
+	ServerID     uuid.UUID
+	FragmentID   uuid.UUID
+	FragmentSize int64
 }
