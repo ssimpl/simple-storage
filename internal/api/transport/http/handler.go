@@ -48,7 +48,6 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filePath := fmt.Sprintf("/tmp/%s", uuid.New().String())
-
 	tempFile, err := os.Create(filePath)
 	if err != nil {
 		respondWithInternalError(w, "Failed to create temp file", err)
@@ -83,13 +82,7 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	fileInfo, err := tempFile.Stat()
-	if err != nil {
-		respondWithInternalError(w, "Failed to get file info", err)
-		return
-	}
-
-	if err := h.objManager.StoreObject(r.Context(), fileName, tempFile, fileInfo.Size()); err != nil {
+	if err := h.objManager.StoreObject(r.Context(), fileName, tempFile, written); err != nil {
 		respondWithInternalError(w, "Failed to store object", err)
 		return
 	}

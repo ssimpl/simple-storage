@@ -41,7 +41,7 @@ func NewObjectManager(
 	}
 }
 
-// TODO: delete existing fragments if object with specified name already exists
+// TODO: use the same servers for fragments if object with specified name already exists
 func (m *ObjectManager) StoreObject(
 	ctx context.Context, objectName string, src io.ReaderAt, size int64,
 ) error {
@@ -73,7 +73,7 @@ func (m *ObjectManager) StoreObject(
 				currentFragmentSize = lastFragmentSize
 			}
 
-			fragmentID := uuid.New()
+			fragmentID := getFragmentID(objectName, fragmentIndex)
 			fragmentReader := io.NewSectionReader(src, int64(fragmentIndex)*fragmentSize, currentFragmentSize)
 
 			//TODO: implement retries
@@ -111,6 +111,10 @@ func getRandomServer(servers []model.Server) model.Server {
 		return servers[0]
 	}
 	return servers[i.Int64()]
+}
+
+func getFragmentID(objectName string, seqNum int) uuid.UUID {
+	return uuid.NewSHA1(uuid.UUID{}, []byte(fmt.Sprintf("%s-%d", objectName, seqNum)))
 }
 
 func (m *ObjectManager) RetrieveObject(ctx context.Context, objectName string, dst io.Writer) error {
