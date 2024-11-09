@@ -24,3 +24,7 @@ up:
 .PHONY: down
 down:
 	docker-compose down || docker compose down
+
+.PHONY: client
+client:
+	go run ./cmd/client/...
