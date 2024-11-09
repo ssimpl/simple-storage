@@ -15,19 +15,18 @@ import (
 	"github.com/ssimpl/simple-storage/internal/api/model"
 )
 
-const maxFileSize = 10 * 1024 * 1024 * 1024 // 10 GB
-
 type objectManager interface {
 	StoreObject(ctx context.Context, objectName string, src io.ReaderAt, size int64) error
 	RetrieveObject(ctx context.Context, objectName string, dst io.Writer) error
 }
 
 type Handler struct {
-	objManager objectManager
+	objManager    objectManager
+	fileSizeLimit int64
 }
 
-func NewHandler(objManager objectManager) *Handler {
-	return &Handler{objManager: objManager}
+func NewHandler(objManager objectManager, fileSizeLimit int64) *Handler {
+	return &Handler{objManager: objManager, fileSizeLimit: fileSizeLimit}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +63,7 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	written, err := io.Copy(tempFile, io.LimitReader(r.Body, maxFileSize))
+	written, err := io.Copy(tempFile, io.LimitReader(r.Body, h.fileSizeLimit))
 	if err != nil {
 		respondWithInternalError(w, "Failed to copy file data", err)
 		return
@@ -75,7 +74,7 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	if written == maxFileSize {
+	if written == h.fileSizeLimit {
 		buffer := make([]byte, 1)
 		extraRead, err := r.Body.Read(buffer)
 		if extraRead > 0 || (err != nil && err != io.EOF) {

@@ -11,6 +11,7 @@ type config struct {
 	Addr              string        `env:"HTTP_LISTEN_ADDR" env-default:":8080"`
 	ConnectionTimeout time.Duration `env:"CONNECTION_TIMEOUT" env-default:"5s"`
 	FileFragments     int           `env:"FILE_FRAGMENTS" env-default:"6"`
+	FileSizeLimit     int64         `env:"FILE_SIZE_LIMIT" env-default:"10737418240" env-description:"Default: 10 GB"`
 
 	PG pgConfig
 }

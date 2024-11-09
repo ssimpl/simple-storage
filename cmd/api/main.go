@@ -47,7 +47,7 @@ func run() error {
 	}
 
 	objectManager := service.NewObjectManager(storageClient, metaRepo, cfg.FileFragments)
-	handler := http.NewHandler(objectManager)
+	handler := http.NewHandler(objectManager, cfg.FileSizeLimit)
 
 	mux := nh.NewServeMux()
 	mux.HandleFunc("/", handler.ServeHTTP)
