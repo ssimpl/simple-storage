@@ -41,6 +41,7 @@ func NewObjectManager(
 	}
 }
 
+// TODO: delete existing fragments if object with specified name already exists
 func (m *ObjectManager) StoreObject(
 	ctx context.Context, objectName string, src io.ReaderAt, size int64,
 ) error {
@@ -64,6 +65,7 @@ func (m *ObjectManager) StoreObject(
 		go func(fragmentIndex int) {
 			defer wg.Done()
 
+			//TODO: implement more intelligent balancing algorithm
 			server := getRandomServer(servers)
 
 			currentFragmentSize := fragmentSize
@@ -73,6 +75,8 @@ func (m *ObjectManager) StoreObject(
 
 			fragmentID := uuid.New()
 			fragmentReader := io.NewSectionReader(src, int64(fragmentIndex)*fragmentSize, currentFragmentSize)
+
+			//TODO: implement retries
 			err := m.objectStorage.Store(ctx, server.Addr, fragmentID, fragmentReader)
 			if err != nil {
 				errChan <- fmt.Errorf("failed to store fragment: %w", err)
@@ -138,6 +142,7 @@ func (m *ObjectManager) RetrieveObject(ctx context.Context, objectName string, d
 			return fmt.Errorf("server '%s' not found: %w", f.ServerID, model.ErrServerNotFound)
 		}
 
+		//TODO: implement retries
 		if err := m.objectStorage.Retrieve(ctx, server.Addr, f.FragmentID, dst); err != nil {
 			return fmt.Errorf("failed to retrieve fragment '%s': %w", f.FragmentID, err)
 		}

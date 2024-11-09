@@ -11,7 +11,7 @@ generate:
 
 .PHONY: lint
 lint:
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.61 golangci-lint run -v
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.61 golangci-lint run -v --timeout=5m
 
 .PHONY: test
 test:

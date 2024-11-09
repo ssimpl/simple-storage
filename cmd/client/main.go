@@ -71,7 +71,7 @@ func run() error {
 		return err
 	}
 
-	req, err = http.NewRequest(http.MethodGet, fileURL, nil)
+	req, err = http.NewRequest(http.MethodGet, fileURL, http.NoBody)
 	if err != nil {
 		return err
 	}

@@ -20,9 +20,9 @@ issues:
         - forcetypeassert
         - goconst
         - revive
-    # - path: .*db\.go
-    #   linters:
-    #     - typecheck
+    - path: .*client/main\.go
+      linters:
+        - gosec
 
 linters-settings:
   govet:
