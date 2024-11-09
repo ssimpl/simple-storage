@@ -15,6 +15,8 @@ import (
 	"github.com/ssimpl/simple-storage/internal/api/model"
 )
 
+const maxFileSize = 10 * 1024 * 1024 * 1024 // 10 GB
+
 type objectManager interface {
 	StoreObject(ctx context.Context, objectName string, src io.ReaderAt, size int64) error
 	RetrieveObject(ctx context.Context, objectName string, dst io.Writer) error
@@ -50,9 +52,7 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 
 	tempFile, err := os.Create(filePath)
 	if err != nil {
-		errMsg := "Failed to create temp file"
-		slog.Error(errMsg, "err", err)
-		http.Error(w, errMsg, http.StatusInternalServerError)
+		respondWithInternalError(w, "Failed to create temp file", err)
 		return
 	}
 	defer func() {
@@ -64,10 +64,9 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	if _, err := io.Copy(tempFile, r.Body); err != nil {
-		errMsg := "Failed to copy file data"
-		slog.Error(errMsg, "err", err)
-		http.Error(w, errMsg, http.StatusInternalServerError)
+	written, err := io.Copy(tempFile, io.LimitReader(r.Body, maxFileSize))
+	if err != nil {
+		respondWithInternalError(w, "Failed to copy file data", err)
 		return
 	}
 	defer func() {
@@ -76,18 +75,23 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	if written == maxFileSize {
+		buffer := make([]byte, 1)
+		extraRead, err := r.Body.Read(buffer)
+		if extraRead > 0 || (err != nil && err != io.EOF) {
+			http.Error(w, "File size exceeds the limit", http.StatusRequestEntityTooLarge)
+			return
+		}
+	}
+
 	fileInfo, err := tempFile.Stat()
 	if err != nil {
-		errMsg := "Failed to get file info"
-		slog.Error(errMsg, "err", err)
-		http.Error(w, errMsg, http.StatusInternalServerError)
+		respondWithInternalError(w, "Failed to get file info", err)
 		return
 	}
 
 	if err := h.objManager.StoreObject(r.Context(), fileName, tempFile, fileInfo.Size()); err != nil {
-		errMsg := "Failed to store object"
-		slog.Error(errMsg, "err", err)
-		http.Error(w, errMsg, http.StatusInternalServerError)
+		respondWithInternalError(w, "Failed to store object", err)
 		return
 	}
 
@@ -110,9 +114,12 @@ func (h *Handler) downloadFile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		errMsg := "Failed to retrieve object"
-		slog.Error(errMsg, "err", err)
-		http.Error(w, errMsg, http.StatusInternalServerError)
+		respondWithInternalError(w, "Failed to retrieve object", err)
 		return
 	}
+}
+
+func respondWithInternalError(w http.ResponseWriter, message string, err error) {
+	slog.Error(message, "err", err)
+	http.Error(w, message, http.StatusInternalServerError)
 }

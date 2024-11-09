@@ -1,0 +1,6 @@
+vendor/
+coverage.out
+testdata
+docker-compose.yml
+Dockerfile
+Dockerfile.*
