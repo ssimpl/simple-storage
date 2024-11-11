@@ -7,16 +7,14 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
+	"strconv"
 	"strings"
-
-	"github.com/google/uuid"
 
 	"github.com/ssimpl/simple-storage/internal/api/model"
 )
 
 type objectManager interface {
-	StoreObject(ctx context.Context, objectName string, src io.ReaderAt, size int64) error
+	StoreObject(ctx context.Context, objectName string, src io.Reader, size int64) error
 	RetrieveObject(ctx context.Context, objectName string, dst io.Writer) error
 }
 
@@ -47,42 +45,27 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filePath := fmt.Sprintf("/tmp/%s", uuid.New().String())
-	tempFile, err := os.Create(filePath)
-	if err != nil {
-		respondWithInternalError(w, "Failed to create temp file", err)
+	size, err := strconv.ParseInt(r.Header.Get("Content-Length"), 10, 64)
+	if err != nil || size == 0 {
+		http.Error(w, "Content-Length header is required", http.StatusBadRequest)
 		return
 	}
-	defer func() {
-		if err := tempFile.Close(); err != nil {
-			slog.Error("Failed to close temp file", "err", err)
-		}
-		if err := os.Remove(filePath); err != nil {
-			slog.Error("Failed to remove temp file", "err", err)
-		}
-	}()
 
-	written, err := io.Copy(tempFile, io.LimitReader(r.Body, h.fileSizeLimit))
-	if err != nil {
-		respondWithInternalError(w, "Failed to copy file data", err)
-		return
-	}
+	slog.Info("Received file", "name", fileName, "size", size)
+
+	fileData := http.MaxBytesReader(w, r.Body, h.fileSizeLimit)
 	defer func() {
 		if err := r.Body.Close(); err != nil {
 			slog.Error("Failed to close request body", "err", err)
 		}
 	}()
 
-	if written == h.fileSizeLimit {
-		buffer := make([]byte, 1)
-		extraRead, err := r.Body.Read(buffer)
-		if extraRead > 0 || (err != nil && err != io.EOF) {
+	if err := h.objManager.StoreObject(r.Context(), fileName, fileData, size); err != nil {
+		var errMaxBytes *http.MaxBytesError
+		if errors.As(err, &errMaxBytes) {
 			http.Error(w, "File size exceeds the limit", http.StatusRequestEntityTooLarge)
 			return
 		}
-	}
-
-	if err := h.objManager.StoreObject(r.Context(), fileName, tempFile, written); err != nil {
 		respondWithInternalError(w, "Failed to store object", err)
 		return
 	}

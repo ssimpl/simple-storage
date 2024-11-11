@@ -40,15 +40,19 @@ func (c *Client) Store(ctx context.Context, serverAddr string, objectID uuid.UUI
 
 	buffer := make([]byte, bufferSize)
 	for {
-		n, err := data.Read(buffer)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return fmt.Errorf("failed to read data: %w", err)
+		n, readErr := data.Read(buffer)
+		if readErr != nil && !errors.Is(readErr, io.EOF) {
+			return fmt.Errorf("failed to read data: %w", readErr)
 		}
-		if err := stream.Send(&storage.UploadRequest{Data: buffer[:n]}); err != nil {
-			return fmt.Errorf("failed to send upload data chunk: %w", err)
+
+		if n > 0 {
+			if err := stream.Send(&storage.UploadRequest{Data: buffer[:n]}); err != nil {
+				return fmt.Errorf("failed to send upload data chunk: %w", err)
+			}
+		}
+
+		if readErr == io.EOF {
+			break
 		}
 	}
 

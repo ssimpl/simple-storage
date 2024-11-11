@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/md5"
 	"flag"
 	"fmt"
@@ -41,17 +42,13 @@ func run() error {
 		return err
 	}
 
-	if _, err := file.Seek(0, 0); err != nil {
-		return err
-	}
-
 	log.Println("File size:", stat.Size())
 
 	fileURL := fmt.Sprintf("%s/%s", *serverAddr, stat.Name())
 
 	log.Println("File URL:", fileURL)
 
-	req, err := http.NewRequest(http.MethodPut, fileURL, file)
+	req, err := http.NewRequest(http.MethodPut, fileURL, bytes.NewBuffer(fileData))
 	if err != nil {
 		return err
 	}
@@ -68,7 +65,7 @@ func run() error {
 	log.Println("Upload finished", "duration", time.Since(startTime).String())
 
 	if resp.StatusCode != http.StatusOK {
-		return err
+		return fmt.Errorf("upload failed: unexpected status code %d", resp.StatusCode)
 	}
 
 	req, err = http.NewRequest(http.MethodGet, fileURL, http.NoBody)
@@ -86,7 +83,7 @@ func run() error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return err
+		return fmt.Errorf("download failed: unexpected status code %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -99,10 +96,10 @@ func run() error {
 	log.Println("Comparing files...")
 
 	if md5.Sum(fileData) != md5.Sum(body) {
-		log.Println("Files are not equal")
-	} else {
-		log.Println("Files are equal")
+		return fmt.Errorf("files are NOT equal: expectedLen - %d, actualLen - %d", len(fileData), len(body))
 	}
+
+	log.Println("Files are EQUAL")
 
 	log.Println("Client finished")
 

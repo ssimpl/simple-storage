@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"sync"
 
 	"github.com/google/uuid"
 
@@ -41,7 +40,7 @@ func NewObjectManager(
 
 // TODO: use the same servers for fragments if object with specified name already exists
 func (m *ObjectManager) StoreObject(
-	ctx context.Context, objectName string, src io.ReaderAt, size int64,
+	ctx context.Context, objectName string, src io.Reader, size int64,
 ) error {
 	servers, err := m.metaRepo.GetServers(ctx)
 	if err != nil {
@@ -58,46 +57,32 @@ func (m *ObjectManager) StoreObject(
 	fragmentSize := size / int64(m.fragmentCount)
 	lastFragmentSize := size - (fragmentSize * int64(m.fragmentCount-1))
 
-	var wg sync.WaitGroup
-	errChan := make(chan error, m.fragmentCount)
 	metaFragments := make([]model.ObjectFragmentMeta, 0, m.fragmentCount)
-
 	for i := 0; i < m.fragmentCount; i++ {
-		wg.Add(1)
-		go func(fragmentIndex int) {
-			defer wg.Done()
+		fragmentIndex := i
 
-			server := servers[fragmentIndex%len(servers)]
+		server := servers[fragmentIndex%len(servers)]
 
-			currentFragmentSize := fragmentSize
-			if fragmentIndex == m.fragmentCount-1 {
-				currentFragmentSize = lastFragmentSize
-			}
+		currentFragmentSize := fragmentSize
+		if fragmentIndex == m.fragmentCount-1 {
+			currentFragmentSize = lastFragmentSize
+		}
 
-			fragmentID := getFragmentID(objectName, fragmentIndex)
-			fragmentReader := io.NewSectionReader(src, int64(fragmentIndex)*fragmentSize, currentFragmentSize)
+		fragmentID := getFragmentID(objectName, fragmentIndex)
+		fragmentReader := io.LimitReader(src, currentFragmentSize)
 
-			//TODO: implement retries
-			err := m.objectStorage.Store(ctx, server.Addr, fragmentID, fragmentReader)
-			if err != nil {
-				errChan <- fmt.Errorf("failed to store fragment: %w", err)
-				return
-			}
+		//TODO: implement retries
+		err := m.objectStorage.Store(ctx, server.Addr, fragmentID, fragmentReader)
+		if err != nil {
+			return fmt.Errorf("failed to store fragment: %w", err)
+		}
 
-			metaFragments = append(metaFragments, model.ObjectFragmentMeta{
-				SeqNum:       fragmentIndex,
-				ServerID:     server.ID,
-				FragmentID:   fragmentID,
-				FragmentSize: currentFragmentSize,
-			})
-		}(i)
-	}
-
-	wg.Wait()
-	close(errChan)
-
-	if len(errChan) > 0 {
-		return fmt.Errorf("failed to store object: %w", <-errChan)
+		metaFragments = append(metaFragments, model.ObjectFragmentMeta{
+			SeqNum:       fragmentIndex,
+			ServerID:     server.ID,
+			FragmentID:   fragmentID,
+			FragmentSize: currentFragmentSize,
+		})
 	}
 
 	return m.metaRepo.SaveObjectMeta(ctx, model.ObjectMeta{
